@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사막 지하 방공호 3D 모형</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #f3f1ec;
+               font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; color: #2b2a27; }
+  #view { position: fixed; inset: 0; }
+  #panel { position: fixed; left: 16px; top: 16px; background: rgba(255,255,255,0.94); border-radius: 14px;
+           padding: 14px 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.12); max-width: 280px; }
+  #panel h1 { font-size: 17px; margin: 0 0 4px; }
+  #panel p { font-size: 12.5px; margin: 0 0 10px; color: #6e6a62; line-height: 1.45; }
+  .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+  button { font: inherit; font-size: 13px; font-weight: 700; border: 0; border-radius: 9px; padding: 8px 12px;
+           background: #b07a34; color: #fff; cursor: pointer; }
+  button.sub { background: #e9e3d6; color: #2b2a27; }
+  button:active { transform: translateY(1px); }
+  #labels { position: fixed; inset: 0; pointer-events: none; }
+  .lbl { position: absolute; transform: translate(-50%, -50%); font-size: 13px; font-weight: 700; white-space: nowrap;
+         background: rgba(255,255,255,0.92); padding: 3px 9px; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+  #hint { position: fixed; right: 16px; bottom: 14px; font-size: 12px; color: #6e6a62;
+          background: rgba(255,255,255,0.85); padding: 6px 10px; border-radius: 10px; }
+  #err { display: none; position: fixed; inset: 0; align-items: center; justify-content: center; text-align: center;
+         padding: 24px; font-size: 15px; }
+</style>
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="view"></div>
+<div id="labels"></div>
+<div id="panel">
+  <h1>사막 지하 방공호 3D 모형</h1>
+  <p>흙 3m 아래 지하 한 층에 4인 가족이 사는 방공호. 지면 판을 떼면 방 배치가 보여.</p>
+  <div class="btns">
+    <button id="lidBtn">지면 판 떼기</button>
+    <button id="lblBtn" class="sub">라벨 끄기</button>
+    <button id="camBtn" class="sub">처음 시점</button>
+  </div>
+</div>
+<div id="hint">드래그: 돌리기 · 휠/두 손가락: 확대 · 오른쪽 드래그: 이동</div>
+<div id="err">3D 화면을 불러오지 못했어.<br>인터넷 연결을 확인하거나, 다른 브라우저(크롬·엣지)로 열어 줘.</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { buildBunker, ROOM_H } from './js/bunker.js';
+
+try {
+  const view = document.getElementById('view');
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  view.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xf3f1ec);
+
+  const model = buildBunker(THREE);
+  scene.add(model.root);
+
+  // 조명
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xd8cdb8, 1.4));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+  const sun = new THREE.DirectionalLight(0xfff4e2, 2.0);
+  sun.position.set(-4, 26, 14);
+  sun.target.position.set(8, 0, 5.5);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 60 });
+  sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
+  scene.add(sun, sun.target);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.45); fill.position.set(20, 10, 18); scene.add(fill);
+
+  // 카메라
+  const cam = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.1, 300);
+  const HOME = { pos: new THREE.Vector3(23.5, 18.0, 25.5), target: new THREE.Vector3(7.8, 1.8, 5.4) };
+  cam.position.copy(HOME.pos);
+  const controls = new OrbitControls(cam, renderer.domElement);
+  controls.target.copy(HOME.target);
+  controls.enableDamping = true;
+  controls.maxPolarAngle = Math.PI * 0.49;
+  controls.minDistance = 6; controls.maxDistance = 80;
+  controls.update();
+
+  // 지면 판 떼기/덮기
+  let open = false;          // 목표 상태
+  let t = 0;                 // 0 = 덮음, 1 = 뗌
+  const LIFT = 7;
+  model.glow.visible = false;
+  model.edges.visible = false;
+  const lidBtn = document.getElementById('lidBtn');
+  lidBtn.onclick = () => {
+    open = !open;
+    lidBtn.textContent = open ? '지면 판 덮기' : '지면 판 떼기';
+    if (open) {             // 안이 잘 보이게 위에서 내려다보는 시점으로
+      flyTo(new THREE.Vector3(12.0, 30.0, 21.0), new THREE.Vector3(8.0, 0.0, 5.6));
+    } else {
+      flyTo(HOME.pos, HOME.target);
+    }
+    buildLabels();
+  };
+
+  // 카메라 이동 애니메이션
+  let fly = null;
+  function flyTo(pos, target) {
+    fly = { p0: cam.position.clone(), t0: controls.target.clone(), p1: pos.clone(), t1: target.clone(), k: 0 };
+  }
+  document.getElementById('camBtn').onclick = () => open ? flyTo(new THREE.Vector3(12.0, 30.0, 21.0), new THREE.Vector3(8.0, 0.0, 5.6)) : flyTo(HOME.pos, HOME.target);
+
+  // 라벨
+  const labelLayer = document.getElementById('labels');
+  let showLabels = true;
+  let labelEls = [];
+  function buildLabels() {
+    labelLayer.innerHTML = '';
+    labelEls = (open ? model.labelsOpen : model.labelsClosed).map(([text, x, y, z]) => {
+      const el = document.createElement('div');
+      el.className = 'lbl'; el.textContent = text; labelLayer.appendChild(el);
+      return { el, p: new THREE.Vector3(x, y, z) };
+    });
+  }
+  buildLabels();
+  const lblBtn = document.getElementById('lblBtn');
+  lblBtn.onclick = () => {
+    showLabels = !showLabels;
+    lblBtn.textContent = showLabels ? '라벨 끄기' : '라벨 켜기';
+    labelLayer.style.display = showLabels ? '' : 'none';
+  };
+  const v = new THREE.Vector3();
+  function placeLabels() {
+    if (!showLabels) return;
+    const animating = t > 0.02 && t < 0.98;
+    for (const { el, p } of labelEls) {
+      v.copy(p).project(cam);
+      const hidden = animating || v.z > 1;
+      el.style.display = hidden ? 'none' : '';
+      el.style.left = ((v.x + 1) / 2 * innerWidth) + 'px';
+      el.style.top = ((1 - v.y) / 2 * innerHeight) + 'px';
+    }
+  }
+
+  addEventListener('resize', () => {
+    cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  const ease = (x) => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+  const clock = new THREE.Clock();
+  renderer.setAnimationLoop(() => {
+    const dt = Math.min(clock.getDelta(), 0.05);
+    const goal = open ? 1 : 0;
+    if (t !== goal) {
+      t += Math.sign(goal - t) * dt * 1.2;
+      t = Math.max(0, Math.min(1, t));
+    }
+    const e = ease(t);
+    model.lid.position.y = ROOM_H + e * LIFT;
+    model.lid.position.z = -e * 9;          // 위로 들고 뒤로 비켜 둠
+    model.glow.visible = t > 0.5;
+    model.edges.visible = t > 0.5;
+    if (fly) {
+      fly.k = Math.min(1, fly.k + dt * 1.1);
+      const k = ease(fly.k);
+      cam.position.lerpVectors(fly.p0, fly.p1, k);
+      controls.target.lerpVectors(fly.t0, fly.t1, k);
+      if (fly.k >= 1) fly = null;
+    }
+    controls.update();
+    renderer.render(scene, cam);
+    placeLabels();
+  });
+} catch (err) {
+  console.error(err);
+  document.getElementById('err').style.display = 'flex';
+}
+</script>
+</body>
+</html>
