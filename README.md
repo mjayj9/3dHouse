@@ -15,7 +15,7 @@
 - [지면 판을 뗀 모습 · bunker_open.stl](model/bunker_open.stl)
 
 **웹 뷰어 (색, 라벨, 지면 판 떼기 버튼)**
-GitHub Pages를 켜면 https://mjayj9.github.io/3dHouse/ 에서 열린다. 버튼으로 지면 판을 떼었다 덮었다 할 수 있고, 방 이름 라벨도 함께 나온다.
+GitHub Pages를 켜면 https://mjayj9.github.io/3dHouse/ 에서 열린다. 버튼으로 지면 판을 떼었다 덮었다 할 수 있고, 방 이름 라벨도 함께 나온다. 태양광 패널, 채광관, 물탱크처럼 모형의 부분을 누르면 그 부분이 무슨 역할을 하는지 설명 카드가 뜬다.
 
 ![웹 뷰어 화면](images/viewer.jpg)
 
@@ -36,6 +36,7 @@ GitHub Pages 켜는 법: 저장소 **Settings → Pages → Build and deployment
 ```
 index.html          웹 뷰어 (three.js, CDN에서 불러옴)
 js/bunker.js        모형을 만드는 코드 (단위: m)
+js/info.js          부분을 눌렀을 때 나오는 설명
 model/
   bunker_closed.stl 지면 판을 덮은 모형
   bunker_open.stl   지면 판을 뗀 모형 (지하층만)

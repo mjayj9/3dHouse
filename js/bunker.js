@@ -164,9 +164,9 @@ export function buildBunker(THREE) {
   box(9.15, 9.8, 0.08, 0.48, 2.8, 5.2, M.furn2, base, '소파'); box(9.6, 9.8, 0.08, 0.95, 2.8, 5.2, M.furn2, base, '소파 등받이');
   box(8.0, 8.7, 0.08, 0.42, 3.5, 4.5, M.furn, base, '탁자');
   box(10.4, 12.4, 0.08, 2.0, 0.5, 1.1, M.furn2, base, '옷장');
-  box(13.6, 15.4, 0.08, 0.5, 0.55, 2.6, M.furn, base, '침대'); box(13.6, 15.4, 0.08, 1.0, 0.5, 0.62, M.furn2, base, '침대 머리판');
-  box(10.3, 12.3, 0.08, 0.5, 3.75, 4.65, M.furn, base, '침대'); box(10.3, 10.38, 0.08, 0.9, 3.75, 4.65, M.furn2, base, '침대 머리판');
-  box(13.4, 15.4, 0.08, 0.5, 3.75, 4.65, M.furn, base, '침대'); box(15.32, 15.4, 0.08, 0.9, 3.75, 4.65, M.furn2, base, '침대 머리판');
+  box(13.6, 15.4, 0.08, 0.5, 0.55, 2.6, M.furn, base, '안방 침대'); box(13.6, 15.4, 0.08, 1.0, 0.5, 0.62, M.furn2, base, '안방 침대');
+  box(10.3, 12.3, 0.08, 0.5, 3.75, 4.65, M.furn, base, '아이 방 침대'); box(10.3, 10.38, 0.08, 0.9, 3.75, 4.65, M.furn2, base, '아이 방 침대');
+  box(13.4, 15.4, 0.08, 0.5, 3.75, 4.65, M.furn, base, '아이 방 침대'); box(15.32, 15.4, 0.08, 0.9, 3.75, 4.65, M.furn2, base, '아이 방 침대');
   box(13.8, 15.4, 0.08, 0.78, 5.15, 5.75, M.furn, base, '책상');
   for (let i = 0; i < 4; i++) box(0.55, 1.45, 0.08, 1.25, 7.95 + i * 0.6, 8.45 + i * 0.6, M.batt, base, '배터리');
   cyl(2.05, 9.85, 0.32, 0.08, 0.8, M.blue, 32, base, '우물');
@@ -200,9 +200,9 @@ export function buildBunker(THREE) {
   const tubes = [[5.6, 1.9], [8.3, 1.9], [7.4, 4.7], [12.9, 2.1], [12.85, 4.2], [9.5, 6.75], [15.05, 8.95], [15.05, 9.95]];
   for (const [x, z] of tubes) {
     const d = new THREE.Mesh(new THREE.CircleGeometry(0.55, 40), M.glow);
-    d.rotation.x = -Math.PI / 2; d.position.set(x, 0.095, z); glow.add(d);
+    d.name = '채광관 빛'; d.rotation.x = -Math.PI / 2; d.position.set(x, 0.095, z); glow.add(d);
     const c = new THREE.Mesh(new THREE.CircleGeometry(0.22, 32), M.glowC);
-    c.rotation.x = -Math.PI / 2; c.position.set(x, 0.1, z); glow.add(c);
+    c.name = '채광관 빛'; c.rotation.x = -Math.PI / 2; c.position.set(x, 0.1, z); glow.add(c);
   }
 
   // ---------- 지면 판 ----------

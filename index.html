@@ -22,6 +22,15 @@
          background: rgba(255,255,255,0.92); padding: 3px 9px; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
   #hint { position: fixed; right: 16px; bottom: 14px; font-size: 12px; color: #6e6a62;
           background: rgba(255,255,255,0.85); padding: 6px 10px; border-radius: 10px; }
+  #info { display: none; position: fixed; left: 16px; bottom: 16px; width: 300px; max-width: calc(100vw - 32px);
+          background: rgba(255,255,255,0.97); border-radius: 14px; padding: 14px 16px 15px;
+          box-shadow: 0 4px 18px rgba(0,0,0,0.16); border-left: 0; }
+  #info .place { font-size: 11.5px; font-weight: 700; color: #b07a34; margin-bottom: 2px; }
+  #info .title { font-size: 17px; font-weight: 800; margin-bottom: 6px; }
+  #info .text { font-size: 13.5px; line-height: 1.6; color: #3a3833; }
+  #info .close { position: absolute; right: 8px; top: 6px; background: none; color: #8a877f; font-size: 18px; padding: 4px 8px; }
+  canvas { cursor: grab; }
+  canvas.pointing { cursor: pointer; }
   #err { display: none; position: fixed; inset: 0; align-items: center; justify-content: center; text-align: center;
          padding: 24px; font-size: 15px; }
 </style>
@@ -37,20 +46,23 @@
 <div id="labels"></div>
 <div id="panel">
   <h1>사막 지하 방공호 3D 모형</h1>
-  <p>흙 3m 아래 지하 한 층에 4인 가족이 사는 방공호. 지면 판을 떼면 방 배치가 보여.</p>
+  <p>흙 3m 아래 지하 한 층에 4인 가족이 사는 방공호. 지면 판을 떼면 방 배치가 보이고, 부분을 누르면 무슨 역할인지 나와.</p>
   <div class="btns">
     <button id="lidBtn">지면 판 떼기</button>
     <button id="lblBtn" class="sub">라벨 끄기</button>
     <button id="camBtn" class="sub">처음 시점</button>
   </div>
 </div>
-<div id="hint">드래그: 돌리기 · 휠/두 손가락: 확대 · 오른쪽 드래그: 이동</div>
+<div id="info"><button class="close" id="infoClose" aria-label="닫기">×</button>
+  <div class="place" id="infoPlace"></div><div class="title" id="infoTitle"></div><div class="text" id="infoText"></div></div>
+<div id="hint">누르기: 역할 보기 · 드래그: 돌리기 · 휠/두 손가락: 확대 · 오른쪽 드래그: 이동</div>
 <div id="err">3D 화면을 불러오지 못했어.<br>인터넷 연결을 확인하거나, 다른 브라우저(크롬·엣지)로 열어 줘.</div>
 
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { buildBunker, ROOM_H } from './js/bunker.js';
+import { PARTS, NAME_TO_PART } from './js/info.js';
 
 try {
   const view = document.getElementById('view');
@@ -150,6 +162,63 @@ try {
       el.style.top = ((1 - v.y) / 2 * innerHeight) + 'px';
     }
   }
+
+  // ---------- 눌러서 역할 보기 ----------
+  const targets = [];
+  model.root.traverse((o) => {
+    if (o.isMesh && NAME_TO_PART[o.name]) { o.userData.part = NAME_TO_PART[o.name]; targets.push(o); }
+  });
+  const infoBox = document.getElementById('info');
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  let selected = null;            // 선택된 부분 key
+  let selectedMeshes = [];
+  function isShown(o) { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; }
+  function pick(ev) {
+    const r = renderer.domElement.getBoundingClientRect();
+    pointer.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+    raycaster.setFromCamera(pointer, cam);
+    const hit = raycaster.intersectObjects(targets, false).find((h) => isShown(h.object));
+    return hit ? hit.object.userData.part : null;
+  }
+  function clearHighlight() {
+    for (const m of selectedMeshes) { m.material.dispose(); m.material = m.userData.baseMat; }
+    selectedMeshes = [];
+  }
+  function select(part) {
+    clearHighlight();
+    selected = part;
+    if (!part) { infoBox.style.display = 'none'; return; }
+    for (const m of targets) {
+      if (m.userData.part !== part) continue;
+      m.userData.baseMat = m.material;
+      const hm = m.material.clone();
+      if (hm.emissive) { hm.emissive = new THREE.Color(0xf2a33a); hm.emissiveIntensity = 0.45; }
+      else { hm.color = new THREE.Color(0xf2a33a); }
+      m.material = hm;
+      selectedMeshes.push(m);
+    }
+    const info = PARTS[part];
+    document.getElementById('infoPlace').textContent = info.place;
+    document.getElementById('infoTitle').textContent = info.title;
+    document.getElementById('infoText').textContent = info.text;
+    infoBox.style.display = 'block';
+  }
+  document.getElementById('infoClose').onclick = () => select(null);
+  let down = null;
+  renderer.domElement.addEventListener('pointerdown', (ev) => { down = { x: ev.clientX, y: ev.clientY }; });
+  renderer.domElement.addEventListener('pointerup', (ev) => {
+    if (!down) return;
+    const moved = Math.hypot(ev.clientX - down.x, ev.clientY - down.y);
+    down = null;
+    if (moved > 6) return;                 // 끌어서 돌린 경우는 무시
+    const part = pick(ev);
+    select(part === selected ? null : part);
+  });
+  renderer.domElement.addEventListener('pointermove', (ev) => {
+    if (ev.pointerType !== 'mouse' || ev.buttons) return;
+    renderer.domElement.classList.toggle('pointing', !!pick(ev));
+  });
 
   addEventListener('resize', () => {
     cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix();
