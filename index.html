@@ -61,8 +61,8 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { buildBunker, ROOM_H } from './js/bunker.js';
-import { PARTS, NAME_TO_PART } from './js/info.js';
+import { buildBunker, ROOM_H } from './js/bunker.js?v=3';
+import { PARTS, NAME_TO_PART } from './js/info.js?v=3';
 
 try {
   const view = document.getElementById('view');
@@ -193,8 +193,10 @@ try {
       if (m.userData.part !== part) continue;
       m.userData.baseMat = m.material;
       const hm = m.material.clone();
-      if (hm.emissive) { hm.emissive = new THREE.Color(0xf2a33a); hm.emissiveIntensity = 0.45; }
-      else { hm.color = new THREE.Color(0xf2a33a); }
+      hm.color = new THREE.Color(0xff9a1f);          // 눌린 부분은 확실한 주황색으로
+      if (hm.emissive) { hm.emissive = new THREE.Color(0xff7a00); hm.emissiveIntensity = 0.55; }
+      if (hm.metalness !== undefined) hm.metalness = 0;
+      if (hm.transparent) hm.opacity = 0.95;
       m.material = hm;
       selectedMeshes.push(m);
     }
